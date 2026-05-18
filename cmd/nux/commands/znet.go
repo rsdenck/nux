@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/rsdenck/nux/internal/output"
@@ -18,64 +17,30 @@ import (
 var znetCmd = &cobra.Command{
 	Use:   "znet",
 	Short: "ZeroNet P2P network management",
-	Long:  `Manage ZeroNet decentralized P2P networks. Connect, disconnect, list peers, and manage ZeroNet sites.`,
-}
-
-var znetInstallCmd = &cobra.Command{
-	Use:   "install",
-	Short: "Install ZeroNet",
-	Long:  `Download and install the latest ZeroNet from the official GitHub repository.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		if isZeroNetInstalled() {
-			output.NewInfo("ZeroNet is already installed").Print()
-			return
-		}
-		output.NewInfo("Installing ZeroNet...").Print()
-
-		home, _ := os.UserHomeDir()
-		znetDir := filepath.Join(home, ".nux", "znet")
-		os.MkdirAll(znetDir, 0755)
-
-		arch := runtime.GOARCH
-		dist := "linux64"
-		if arch == "arm64" || arch == "aarch64" {
-			dist = "linux arm64"
-		} else if arch == "386" {
-			dist = "linux32"
-		}
-
-		url := fmt.Sprintf("https://github.com/HelloZeroNet/ZeroNet-%s/archive/refs/heads/master.tar.gz", dist)
-		output.NewInfo(fmt.Sprintf("Downloading ZeroNet for %s...", dist)).Print()
-
-		cmdTar := exec.Command("bash", "-c", fmt.Sprintf(
-			"curl -sL '%s' | tar -xzf - -C '%s' --strip-components=1", url, znetDir))
-		if out, err := cmdTar.CombinedOutput(); err != nil {
-			output.NewError(fmt.Sprintf("Failed to install ZeroNet: %s\n%s", err.Error(), string(out)), "ZNET_INSTALL_ERR").Print()
-			return
-		}
-
-		output.NewInfo("ZeroNet installed successfully").Print()
-		output.NewInfo(fmt.Sprintf("Location: %s", znetDir)).Print()
-		output.NewInfo("Run 'nux znet start' to launch ZeroNet").Print()
-	},
+	Long:  `Manage ZeroNet decentralized P2P networks. Browse sites, manage peers, and monitor the ZeroNet daemon.`,
 }
 
 var znetStartCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start ZeroNet daemon",
-	Long:  `Start the ZeroNet background process on port 43110.`,
+	Long:  `Start the ZeroNet background process on port 43110. Auto-installs if not present.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if isZeroNetRunning() {
 			output.NewInfo("ZeroNet is already running").Print()
 			return
 		}
-		if !isZeroNetInstalled() {
-			output.NewError("ZeroNet is not installed. Run 'nux znet install' first", "ZNET_NOT_FOUND").Print()
-			return
-		}
 		home, _ := os.UserHomeDir()
 		znetDir := filepath.Join(home, ".nux", "znet")
 		znetPy := filepath.Join(znetDir, "zeronet.py")
+
+		if _, err := os.Stat(znetPy); os.IsNotExist(err) {
+			output.NewInfo("ZeroNet not found. Installing...").Print()
+			installZeroNet(znetDir)
+			if _, err := os.Stat(znetPy); os.IsNotExist(err) {
+				output.NewError("Auto-install failed. Check 'nux znet doctor' for details.", "ZNET_INSTALL_ERR").Print()
+				return
+			}
+		}
 
 		cmdStart := exec.Command("python3", znetPy)
 		cmdStart.Dir = znetDir
@@ -118,14 +83,17 @@ var znetStatusCmd = &cobra.Command{
 	Short: "Show ZeroNet daemon status",
 	Run: func(cmd *cobra.Command, args []string) {
 		running := isZeroNetRunning()
-		installed := isZeroNetInstalled()
+		home, _ := os.UserHomeDir()
+		znetDir := filepath.Join(home, ".nux", "znet")
+		installed := false
+		if _, err := os.Stat(filepath.Join(znetDir, "zeronet.py")); err == nil {
+			installed = true
+		}
 
 		headers := []string{"KEY", "VALUE"}
 		var rows [][]string
 		if installed {
 			rows = append(rows, []string{"installed", "yes"})
-			home, _ := os.UserHomeDir()
-			znetDir := filepath.Join(home, ".nux", "znet")
 			rows = append(rows, []string{"path", znetDir})
 		} else {
 			rows = append(rows, []string{"installed", "no"})
@@ -222,6 +190,140 @@ var znetPeersCmd = &cobra.Command{
 	},
 }
 
+var znetSitesCmd = &cobra.Command{
+	Use:   "sites",
+	Short: "List ZeroNet sites and connected peers",
+	Run: func(cmd *cobra.Command, args []string) {
+		znetListCmd.Run(cmd, args)
+	},
+}
+
+var znetOpenCmd = &cobra.Command{
+	Use:   "open [site-address]",
+	Short: "Open a ZeroNet site in browser",
+	Long:  `Open a specific ZeroNet site in the browser. If no address is given, opens the ZeroNet Web UI.`,
+	Args:  cobra.MaximumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		znetConnectCmd.Run(cmd, args)
+	},
+}
+
+var znetLogsCmd = &cobra.Command{
+	Use:   "logs",
+	Short: "Show ZeroNet daemon logs",
+	Long:  `Show recent log entries from the ZeroNet daemon.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		home, _ := os.UserHomeDir()
+		znetDir := filepath.Join(home, ".nux", "znet")
+		logFile := filepath.Join(znetDir, "zeronet.log")
+		debugLog := filepath.Join(znetDir, "debug.log")
+
+		var logPath string
+		if _, err := os.Stat(logFile); err == nil {
+			logPath = logFile
+		} else if _, err := os.Stat(debugLog); err == nil {
+			logPath = debugLog
+		} else {
+			output.PrintWarningMessage("No ZeroNet log files found")
+			return
+		}
+
+		data, err := os.ReadFile(logPath)
+		if err != nil {
+			output.NewError(fmt.Sprintf("Failed to read log: %s", err.Error()), "ZNET_LOG_ERR").Print()
+			return
+		}
+		lines := strings.Split(string(data), "\n")
+		start := 0
+		if len(lines) > 50 {
+			start = len(lines) - 50
+		}
+		for _, line := range lines[start:] {
+			if strings.TrimSpace(line) != "" {
+				fmt.Println(line)
+			}
+		}
+	},
+}
+
+var znetDoctorCmd = &cobra.Command{
+	Use:   "doctor",
+	Short: "Run ZeroNet health diagnostics",
+	Long:  `Comprehensive health check for ZeroNet installation, daemon, port, and connectivity.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		home, _ := os.UserHomeDir()
+		znetDir := filepath.Join(home, ".nux", "znet")
+		pidFile := filepath.Join(znetDir, ".pid")
+
+		output.NewInfo("ZeroNet Diagnostics").Print()
+		fmt.Println(strings.Repeat("-", 50))
+
+		issues := 0
+
+		znetPy := filepath.Join(znetDir, "zeronet.py")
+		if _, err := os.Stat(znetPy); err == nil {
+			output.NewInfo("[OK] ZeroNet installed").Print()
+		} else {
+			output.NewError("[FAIL] ZeroNet not installed", "ZNET_DIAG").Print()
+			issues++
+		}
+
+		if _, err := os.Stat(pidFile); err == nil {
+			pidBytes, _ := os.ReadFile(pidFile)
+			pid := strings.TrimSpace(string(pidBytes))
+			if _, err := os.FindProcess(atoi(pid)); err == nil {
+				output.NewInfo(fmt.Sprintf("[OK] PID file exists: %s", pid)).Print()
+			} else {
+				output.PrintWarningMessage("[WARN] PID file stale (process not found)")
+			}
+		} else {
+			output.NewInfo("[INFO] No PID file (daemon not running)").Print()
+		}
+
+		if isZeroNetRunning() {
+			output.NewInfo("[OK] ZeroNet process running").Print()
+		} else {
+			output.PrintWarningMessage("[WARN] ZeroNet process not running")
+		}
+
+		if isPortOpen(43110) {
+			output.NewInfo("[OK] Port 43110 is open").Print()
+		} else {
+			output.PrintWarningMessage("[WARN] Port 43110 is not open")
+		}
+
+		if isZeroNetRunning() {
+			resp, err := http.Get("http://127.0.0.1:43110")
+			if err == nil && resp.StatusCode < 500 {
+				output.NewInfo("[OK] Web UI responds (HTTP " + resp.Status + ")").Print()
+				resp.Body.Close()
+			} else {
+				output.PrintWarningMessage("[WARN] Web UI not responding")
+			}
+
+			_, err = fetchZeroNetSites()
+			if err == nil {
+				output.NewInfo("[OK] Stats endpoint accessible").Print()
+			} else {
+				output.PrintWarningMessage("[WARN] Stats endpoint: " + err.Error())
+			}
+		}
+
+		if _, err := exec.LookPath("python3"); err == nil {
+			output.NewInfo("[OK] python3 found in PATH").Print()
+		} else {
+			output.NewError("[FAIL] python3 not found", "ZNET_DIAG").Print()
+			issues++
+		}
+
+		if issues > 0 {
+			output.PrintWarningMessage(fmt.Sprintf("Found %d issues requiring attention", issues))
+		} else {
+			output.NewInfo("All checks passed").Print()
+		}
+	},
+}
+
 type znetSite struct {
 	Address        string `json:"address"`
 	Peers          int    `json:"peers"`
@@ -229,11 +331,31 @@ type znetSite struct {
 	ContentUpdated string `json:"content_updated"`
 }
 
-func isZeroNetInstalled() bool {
-	home, _ := os.UserHomeDir()
-	znetPy := filepath.Join(home, ".nux", "znet", "zeronet.py")
-	_, err := os.Stat(znetPy)
-	return err == nil
+func installZeroNet(znetDir string) {
+	os.MkdirAll(znetDir, 0755)
+	url := "https://github.com/ZeroNetX/ZeroNet/archive/refs/heads/master.tar.gz"
+	output.NewInfo("Downloading ZeroNet...").Print()
+	cmdTar := exec.Command("bash", "-c", fmt.Sprintf(
+		"curl -sL '%s' | tar -xzf - -C '%s' --strip-components=1", url, znetDir))
+	if out, err := cmdTar.CombinedOutput(); err != nil {
+		output.NewError(fmt.Sprintf("Failed to install ZeroNet: %s\n%s", err.Error(), string(out)), "ZNET_INSTALL_ERR").Print()
+		return
+	}
+	output.NewInfo("Applying Python 3 compatibility...").Print()
+	exec.Command("bash", "-c",
+		fmt.Sprintf("2to3 -w --no-diffs %s/zeronet.py %s/start.py %s/src/main.py %s/src/Config.py 2>/dev/null; "+
+			"sed -i 's|python2.7|python3|g' %s/zeronet.py %s/start.py",
+			znetDir, znetDir, znetDir, znetDir, znetDir, znetDir)).Run()
+
+	reqFile := filepath.Join(znetDir, "requirements.txt")
+	if _, err := os.Stat(reqFile); err == nil {
+		output.NewInfo("Installing Python dependencies...").Print()
+		cmdPip := exec.Command("pip3", "install", "-r", reqFile)
+		if out, err := cmdPip.CombinedOutput(); err != nil {
+			output.PrintWarningMessage(fmt.Sprintf("pip install warnings: %s", string(out)))
+		}
+	}
+	output.NewInfo("ZeroNet installed successfully").Print()
 }
 
 func isZeroNetRunning() bool {
@@ -261,8 +383,21 @@ func fetchZeroNetSites() ([]znetSite, error) {
 	return sites, nil
 }
 
+func isPortOpen(port int) bool {
+	out, err := exec.Command("ss", "-tlnp").CombinedOutput()
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(out), fmt.Sprintf(":%d", port))
+}
+
+func atoi(s string) int {
+	var n int
+	fmt.Sscanf(s, "%d", &n)
+	return n
+}
+
 func init() {
-	znetCmd.AddCommand(znetInstallCmd)
 	znetCmd.AddCommand(znetStartCmd)
 	znetCmd.AddCommand(znetStopCmd)
 	znetCmd.AddCommand(znetStatusCmd)
@@ -270,5 +405,9 @@ func init() {
 	znetCmd.AddCommand(znetConnectCmd)
 	znetCmd.AddCommand(znetDisconnectCmd)
 	znetCmd.AddCommand(znetPeersCmd)
+	znetCmd.AddCommand(znetSitesCmd)
+	znetCmd.AddCommand(znetOpenCmd)
+	znetCmd.AddCommand(znetLogsCmd)
+	znetCmd.AddCommand(znetDoctorCmd)
 	rootCmd.AddCommand(znetCmd)
 }
