@@ -250,10 +250,8 @@ func PrintTable(headers []string, rows [][]string) {
 
 	for _, row := range rows {
 		for i, cell := range row {
-			// Strip ANSI color codes for width calculation
-			cleanCell := stripAnsi(cell)
-			if len(cleanCell)+2 > widths[i] {
-				widths[i] = len(cleanCell) + 2
+			if len(cell)+2 > widths[i] {
+				widths[i] = len(cell) + 2
 			}
 		}
 	}
@@ -273,7 +271,7 @@ func PrintCompactTable(headers []string, rows [][]string) {
 		return
 	}
 
-	// Calculate minimal widths based on content
+	// Calculate minimal widths based on content (NO truncation)
 	widths := make([]int, len(headers))
 	for i, h := range headers {
 		widths[i] = len(h) + 2
@@ -288,32 +286,11 @@ func PrintCompactTable(headers []string, rows [][]string) {
 		}
 	}
 
-	// Cap column width to terminal width (approx 80)
-	maxWidth := 80
-	totalWidth := 2 // borders
-	for _, w := range widths {
-		totalWidth += w + 1 // cell + separator
-	}
-	if totalWidth > maxWidth {
-		// Reduce value column if needed
-		excess := totalWidth - maxWidth
-		widths[1] -= excess
-		if widths[1] < 10 {
-			widths[1] = 10
-		}
-	}
-
+	// NO width capping - allow table to be as wide as needed
 	printTopBorder(widths)
 	printRow(headers, widths)
 	printSeparator(widths)
 	for _, row := range rows {
-		// Truncate value if too long (preserving color codes)
-		if len(row) > 1 {
-			cleanVal := stripAnsi(row[1])
-			if len(cleanVal) > widths[1]-2 {
-				row[1] = row[1][:widths[1]-5] + "..."
-			}
-		}
 		printRow(row, widths)
 	}
 	printBottomBorder(widths)

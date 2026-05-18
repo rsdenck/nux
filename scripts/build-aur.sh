@@ -1,13 +1,13 @@
 #!/bin/bash
 # scripts/build-aur.sh
-# Build AUR package for TronCLI
+# Build AUR package for NUX
 
 set -e
 
-VERSION="0.2.21"
+VERSION="0.3.0"
 AUR_DIR="dist/aur"
 
-echo "Building AUR package for TronCLI v${VERSION}..."
+echo "Building AUR package for NUX v${VERSION}..."
 
 # Clean previous build
 rm -rf "$AUR_DIR"

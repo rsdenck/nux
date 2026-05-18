@@ -1,0 +1,109 @@
+.TH NUX 1 "May 2026" "0.3.0" "NUX Manual"
+.SH NAME
+nux \- Production-Grade Linux CLI Manager
+.SH SYNOPSIS
+.B nux
+[\fIOPTIONS\fR] [\fICOMMAND\fR]
+.SH DESCRIPTION
+.B nux
+is a production-grade CLI for comprehensive Linux system administration.
+Designed for DevOps, SREs, and SysAdmins who need reliable, idempotent,
+and verifiable system modifications.
+.SH OPTIONS
+.TP
+.BR \-\-json
+Output in JSON format.
+.TP
+.BR \-\-yaml
+Output in YAML format.
+.TP
+.BR \-\-quiet
+Suppress output.
+.TP
+.BR \-\-dry-run
+Simulate execution without making changes.
+.TP
+.BR \-\-timeout \ \fISECONDS\fR
+Timeout in seconds (default: 30).
+.TP
+.BR \-\-verbose
+Enable verbose logging.
+.TP
+.BR \-\-log-file \ \fIFILE\fR
+Log file path (enables debug logging to file).
+.TP
+.BR \-\-no-color
+Disable color output.
+.SH COMMANDS
+.TP
+.B agent
+Manage background agent.
+.TP
+.B audit
+Security auditing tools.
+.TP
+.B bash
+Execute bash scripts or commands.
+.TP
+.B completion
+Generate shell completion scripts.
+.TP
+.B container
+Manage containers (Docker/Podman).
+.TP
+.B disk
+Disk and filesystem operations.
+.TP
+.B doctor
+System health checks.
+.TP
+.B firewall
+Manage firewall rules (nftables).
+.TP
+.B group
+Manage user groups.
+.TP
+.B network
+Network configuration and diagnostics.
+.TP
+.B pkg
+Package management (apt, dnf, apk, etc.).
+.TP
+.B plugin
+Manage plugins.
+.TP
+.B process
+Process monitoring and management.
+.TP
+.B remote
+Remote execution via SSH.
+.TP
+.B service
+Service management (systemd).
+.TP
+.B system
+System information and profiling.
+.TP
+.B user
+Manage users.
+.SH FILES
+.TP
+.I ~/.config/nux/config.yaml
+User-specific configuration.
+.SH EXAMPLES
+.TP
+Run health check:
+.B nux doctor
+.TP
+List system services:
+.B nux service list
+.TP
+Check disk usage:
+.B nux disk usage
+.TP
+List network interfaces:
+.B nux network list
+.SH AUTHOR
+Ranlens Denck (ranlens.denck@protonmnail.com)
+.SH LICENSE
+MIT License

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Test all NUX commands
 
-NUX="./nux_build"
+NUX="./nux"
 
 echo "=== TESTE DO NUX CLI MASTER ==="
 echo ""

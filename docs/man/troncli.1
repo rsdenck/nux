@@ -1,12 +1,12 @@
-.TH TRONCLI 1 "February 2024" "0.2.18" "TronCLI Manual"
+.TH NUX 1 "May 2026" "0.3.0" "NUX Manual"
 .SH NAME
-troncli \- Advanced Linux System Administration CLI
+nux \- Production-Grade Linux CLI Manager
 .SH SYNOPSIS
-.B troncli
+.B nux
 [\fIOPTIONS\fR] [\fICOMMAND\fR]
 .SH DESCRIPTION
-.B troncli
-is a production-grade CLI and TUI for comprehensive Linux system administration.
+.B nux
+is a production-grade CLI for comprehensive Linux system administration.
 Designed for DevOps, SREs, and SysAdmins who need reliable, idempotent,
 and verifiable system modifications.
 .SH OPTIONS
@@ -88,24 +88,21 @@ System information and profiling.
 Manage users.
 .SH FILES
 .TP
-.I /etc/troncli/config.yaml
-Main configuration file.
-.TP
-.I ~/.config/troncli/config.yaml
+.I ~/.config/nux/config.yaml
 User-specific configuration.
 .SH EXAMPLES
 .TP
-Start the TUI dashboard:
-.B troncli
+Run health check:
+.B nux doctor
 .TP
 List system services:
-.B troncli service list
+.B nux service list
 .TP
-Check disk health:
-.B troncli disk health
+Check disk usage:
+.B nux disk usage
 .TP
-Scan network ports:
-.B troncli network scan --target 192.168.1.1
+List network interfaces:
+.B nux network list
 .SH AUTHOR
 Ranlens Denck (ranlens.denck@protonmnail.com)
 .SH LICENSE

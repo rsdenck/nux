@@ -210,7 +210,7 @@ var serviceStatusCmd = &cobra.Command{
 			statusText = "STOPPED"
 		}
 
-	// Calculate table width based on content
+	// Calculate table width based on content (NO width capping)
 	// Header widths
 	keyWidth := len("KEY") + 2
 	valueWidth := len("VALUE") + 2
@@ -223,27 +223,19 @@ var serviceStatusCmd = &cobra.Command{
 			if len(k)+2 > keyWidth {
 				keyWidth = len(k) + 2
 			}
-			// Value width (ANSI codes are short, so just use raw length)
+			// Value width (use raw length, no truncation)
 			if len(v)+2 > valueWidth {
 				valueWidth = len(v) + 2
 			}
 		}
 	}
 	
-	// Cap value width to keep total ~80 chars
-	totalWidth := keyWidth + 1 + valueWidth + 2 // ┌ + key + ┬ + value + ┐
-	if totalWidth > 80 {
-		valueWidth = valueWidth - (totalWidth - 80)
-		if valueWidth < 10 {
-			valueWidth = 10
-		}
-	}
-	
-	tableWidth := keyWidth + 1 + valueWidth + 2 // Total table width
+	// Total table width: ┌ + keyWidth + ┬ + valueWidth + ┐ = keyWidth + 1 + valueWidth + 2
+	tableWidth := keyWidth + 1 + valueWidth + 2
 
 	// Print concise colored output
 	fmt.Printf("\n● Service: %s [%s%s%s]\n", service, statusColor, statusText, reset)
-	// Always use tableWidth for separator to match table borders
+	// Use tableWidth for separator to match table borders exactly
 	fmt.Println(strings.Repeat("─", tableWidth))
 
 		// Print key info as compact table

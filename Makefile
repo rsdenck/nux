@@ -1,7 +1,7 @@
-# Makefile for TronCLI
+# Makefile for NUX
 
-VERSION := 0.2.21
-BINARY_NAME := troncli
+VERSION := 0.3.0
+BINARY_NAME := nux
 
 .PHONY: all clean build test install uninstall deb rpm aur snap docs
 
@@ -13,13 +13,13 @@ clean:
 	rm -f $(BINARY_NAME).exe
 
 build:
-	go build -ldflags="-s -w" -o $(BINARY_NAME) cmd/troncli/main.go
+	go build -ldflags="-s -w -X main.version=$(VERSION)" -o $(BINARY_NAME) cmd/nux/main.go
 
 test:
 	go test ./...
 
 install:
-	go install cmd/troncli/main.go
+	go install ./cmd/nux
 
 # Packaging Targets (require Linux environment)
 

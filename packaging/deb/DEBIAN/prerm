@@ -2,12 +2,12 @@
 set -e
 
 # Remove link
-rm -f /usr/bin/troncli
+rm -f /usr/bin/nux
 
 # Remove man page
-rm -f /usr/share/man/man1/troncli.1.gz
+rm -f /usr/share/man/man1/nux.1.gz
 
 # Update man database
 mandb -q
 
-echo "TronCLI removed successfully."
+echo "NUX removed successfully."

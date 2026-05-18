@@ -1,12 +1,12 @@
 #!/bin/bash
-# TronCLI Intelligent Installer
+# NUX Intelligent Installer
 # Detects architecture, verifies checksum, and installs to /usr/local/bin
 
 set -e
 
 REPO_OWNER="rsdenck"
-REPO_NAME="troncli"
-BIN_NAME="troncli"
+REPO_NAME="nux"
+BIN_NAME="nux"
 INSTALL_DIR="/usr/local/bin"
 
 # Colors
@@ -23,10 +23,13 @@ log_err() { echo -e "${RED}[ERROR]${NC} $1"; }
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 ARCH=$(uname -m)
 
-if [ "$OS" != "linux" ]; then
-    log_err "This script only supports Linux."
-    exit 1
-fi
+case "$OS" in
+    linux|darwin) ;;
+    *)
+        log_err "This script only supports Linux and macOS."
+        exit 1
+        ;;
+esac
 
 case $ARCH in
     x86_64)

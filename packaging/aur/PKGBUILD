@@ -1,26 +1,26 @@
 # Maintainer: Ranlens Denck <ranlens.denck@protonmail.com>
-pkgname=troncli
-pkgver=0.2.21
+pkgname=nux
+pkgver=0.3.0
 pkgrel=1
-pkgdesc="Production Grade Linux System Administration CLI"
+pkgdesc="NUX - Production-Grade Linux CLI Manager"
 arch=('x86_64' 'aarch64')
-url="https://github.com/rsdenck/troncli"
+url="https://github.com/rsdenck/nux"
 license=('MIT')
 depends=('glibc' 'iproute2' 'nftables' 'lvm2')
 makedepends=('go')
-source=("${pkgname}-${pkgver}.tar.gz::https://github.com/rsdenck/troncli/archive/v${pkgver}.tar.gz")
-sha256sums=('SKIP') # Update with actual checksum in release
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/rsdenck/nux/archive/v${pkgver}.tar.gz")
+sha256sums=('SKIP')
 
 build() {
     cd "$pkgname-$pkgver"
     export CGO_ENABLED=0
-    go build -ldflags="-s -w" -o troncli cmd/troncli/main.go
+    go build -ldflags="-s -w -X main.version=$pkgver" -o nux cmd/nux/main.go
 }
 
 package() {
     cd "$pkgname-$pkgver"
-    install -Dm755 troncli "$pkgdir/usr/bin/troncli"
-    install -Dm644 docs/man/troncli.1 "$pkgdir/usr/share/man/man1/troncli.1"
+    install -Dm755 nux "$pkgdir/usr/bin/nux"
+    install -Dm644 docs/man/nux.1 "$pkgdir/usr/share/man/man1/nux.1"
     install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
     install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
 }

@@ -1,11 +1,11 @@
-Package: troncli
-Version: 0.2.21
+Package: nux
+Version: 0.3.0
 Section: utils
 Priority: optional
 Architecture: amd64
 Maintainer: Ranlens Denck <ranlens.denck@protonmail.com>
-Description: Production Grade Linux System Administration CLI
- TronCLI is a comprehensive tool for Linux system administration,
- offering real-time monitoring, LVM management, security auditing,
- and network configuration in a unified TUI/CLI interface.
+Description: NUX - Production-Grade Linux CLI Manager
+ NUX is a comprehensive CLI for Linux system administration,
+ offering real-time monitoring, disk management, security auditing,
+ service and network management, AI agent integration, and more.
  Designed for DevOps and SREs requiring idempotent operations.

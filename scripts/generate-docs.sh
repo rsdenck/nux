@@ -1,6 +1,6 @@
 #!/bin/bash
 # scripts/generate-docs.sh
-# Validates markdown, generates indices, and checks links for TronCLI documentation.
+# Validates markdown, generates indices, and checks links for NUX documentation.
 
 set -e
 
@@ -26,7 +26,7 @@ INDEX_FILE="$DOCS_DIR/Home.md"
 if ! grep -q "# Home" "$INDEX_FILE"; then
     echo "# Home" > "$INDEX_FILE"
     echo "" >> "$INDEX_FILE"
-    echo "Welcome to the **TronCLI** Wiki!" >> "$INDEX_FILE"
+    echo "Welcome to the **NUX** Wiki!" >> "$INDEX_FILE"
     echo "" >> "$INDEX_FILE"
 fi
 

@@ -2,14 +2,14 @@
 set -e
 
 # Link binary
-ln -sf /usr/local/bin/troncli /usr/bin/troncli
+ln -sf /usr/local/bin/nux /usr/bin/nux
 
 # Install man page
 mkdir -p /usr/share/man/man1
-cp /usr/local/share/troncli/man/troncli.1 /usr/share/man/man1/
-gzip -f /usr/share/man/man1/troncli.1
+cp /usr/local/share/nux/man/nux.1 /usr/share/man/man1/
+gzip -f /usr/share/man/man1/nux.1
 
 # Update man database
 mandb -q
 
-echo "TronCLI installed successfully."
+echo "NUX installed successfully."

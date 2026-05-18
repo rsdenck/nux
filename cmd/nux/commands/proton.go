@@ -60,6 +60,51 @@ var protonVpnCmd = &cobra.Command{
 	Short: "Proton VPN management",
 }
 
+// Install command - install protonvpn-cli
+var protonVpnInstallCmd = &cobra.Command{
+	Use:   "install",
+	Short: "Install ProtonVPN CLI",
+	Run: func(cmd *cobra.Command, args []string) {
+		output.NewInfo("Installing ProtonVPN CLI...").Print()
+
+		// Detect distro
+		out, err := exec.Command("cat", "/etc/os-release").CombinedOutput()
+		if err != nil {
+			output.NewError("Failed to detect Linux distribution", "PROTON_INSTALL_ERROR").Print()
+			return
+		}
+
+		osRelease := strings.ToLower(string(out))
+		var installCmd *exec.Cmd
+
+		switch {
+		case strings.Contains(osRelease, "ubuntu") || strings.Contains(osRelease, "debian"):
+			installCmd = exec.Command("sh", "-c", "wget -q https://protonvpn.com/download/protonvpn-stable-release/protonvpn-stable-release_1.0.0-1_all.deb && sudo dpkg -i protonvpn-stable-release_1.0.0-1_all.deb && sudo apt-get update && sudo apt-get install -y protonvpn-cli")
+		case strings.Contains(osRelease, "fedora"):
+			installCmd = exec.Command("sh", "-c", "sudo dnf install -y https://protonvpn.com/download/protonvpn-stable-release/protonvpn-stable-release-1.0.0-1.noarch.rpm && sudo dnf install -y protonvpn-cli")
+		case strings.Contains(osRelease, "rocky") || strings.Contains(osRelease, "rhel") || strings.Contains(osRelease, "centos"):
+			installCmd = exec.Command("sh", "-c", "sudo dnf install -y https://protonvpn.com/download/protonvpn-stable-release/protonvpn-stable-release-1.0.0-1.noarch.rpm && sudo dnf install -y protonvpn-cli")
+		case strings.Contains(osRelease, "arch"):
+			installCmd = exec.Command("sh", "-c", "yay -S --noconfirm protonvpn-cli || (git clone https://aur.archlinux.org/protonvpn-cli.git && cd protonvpn-cli && makepkg -si --noconfirm)")
+		default:
+			// Generic: download binary
+			installCmd = exec.Command("sh", "-c", "wget -q https://protonvpn.com/download/protonvpn-cli_linux -O /tmp/protonvpn && chmod +x /tmp/protonvpn && sudo mv /tmp/protonvpn /usr/local/bin/protonvpn")
+		}
+
+		out, err = installCmd.CombinedOutput()
+		if err != nil {
+			output.NewError(fmt.Sprintf("Installation failed: %s\n%s", err.Error(), strings.TrimSpace(string(out))), "PROTON_INSTALL_ERROR").Print()
+			return
+		}
+
+		output.NewSuccess(map[string]interface{}{
+			"action": "install",
+			"status": "installed",
+			"output": strings.TrimSpace(string(out)),
+		}).Print()
+	},
+}
+
 // Login command - use protonvpn-cli with password-stdin for special characters
 var protonVpnLoginCmd = &cobra.Command{
 	Use:   "login",
@@ -88,15 +133,40 @@ var protonVpnLoginCmd = &cobra.Command{
 			return
 		}
 
-		output.NewInfo(fmt.Sprintf("Authenticating %s using protonvpn-cli...", username)).Print()
+	output.NewInfo(fmt.Sprintf("Authenticating %s via ProtonVPN...", username)).Print()
 
-		// Use protonvpn signin with password from stdin
-		cmdRun := exec.Command("protonvpn", "signin", username)
-		cmdRun.Stdin = strings.NewReader(password + "\n")
+		// Note: The provided credentials appear to be Proton account credentials.
+		// The protonvpn-cli (pip) requires OpenVPN credentials, which are different.
+		// OpenVPN credentials can be found at: https://account.protonvpn.com/account
+		output.NewInfo("Note: If using protonvpn-cli (pip), use OpenVPN credentials from https://account.protonvpn.com/account").Print()
+		output.NewInfo("The provided credentials appear to be account credentials (email/password).").Print()
+
+		// Try using protonvpn-cli if available
+		protonCli, err := exec.LookPath("protonvpn-cli")
+		if err != nil {
+			protonCli, err = exec.LookPath("protonvpn")
+			if err != nil {
+				output.NewError("protonvpn-cli not found. Install it first: https://protonvpn.com/support/linux-cli", "PROTON_CLI_MISSING").Print()
+				return
+			}
+		}
+
+		// Use protonvpn-cli with openvpn (if openvpn is available)
+		_, openvpnErr := exec.LookPath("openvpn")
+		if openvpnErr != nil {
+			output.NewError("openvpn not found. Install openvpn (dnf install openvpn) or use official ProtonVPN app.", "PROTON_DEPENDENCY_MISSING").Print()
+			return
+		}
+
+		// Try to initialize with OpenVPN credentials
+		// Note: The stdin input expects OpenVPN username/password, not account credentials
+		input := username + "\n" + password + "\n"
+		cmdRun := exec.Command(protonCli, "init")
+		cmdRun.Stdin = strings.NewReader(input)
 		out, err := cmdRun.CombinedOutput()
 
 		if err != nil {
-			output.NewError(fmt.Sprintf("Login failed: %s", strings.TrimSpace(string(out))), "PROTON_LOGIN_ERROR").Print()
+			output.NewError(fmt.Sprintf("Login failed: %s\nNote: Make sure you're using OpenVPN credentials (not account credentials). Get them at: https://account.protonvpn.com/account", strings.TrimSpace(string(out))), "PROTON_LOGIN_ERROR").Print()
 			return
 		}
 
@@ -106,7 +176,6 @@ var protonVpnLoginCmd = &cobra.Command{
 			v = vault.NewVault()
 		}
 		v.APIKeys["proton_username"] = username
-		// Note: Password not stored for security, but user can re-login if needed
 		v.Config["proton_logged_in"] = true
 		if err := vault.Save(v); err != nil {
 			output.NewError(fmt.Sprintf("Failed to save credentials to vault: %s", err.Error()), "VAULT_SAVE_ERROR").Print()
@@ -122,89 +191,104 @@ var protonVpnLoginCmd = &cobra.Command{
 	},
 }
 
-// List servers command - uses protonvpn-cli or API
-var protonVpnListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List Proton VPN servers with availability",
-	Run: func(cmd *cobra.Command, args []string) {
-		// Try protonvpn-cli first
-		out, err := exec.Command("protonvpn", "servers").CombinedOutput()
-		if err == nil {
-			// Parse output and display
-			lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	// List servers command - uses protonvpn-cli or API
+	var protonVpnListCmd = &cobra.Command{
+		Use:   "list",
+		Short: "List Proton VPN servers with availability",
+		Run: func(cmd *cobra.Command, args []string) {
+			// Try protonvpn-cli first
+			out, err := exec.Command("protonvpn", "servers").CombinedOutput()
+			if err == nil {
+				// Parse output and display
+				lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+				fmt.Println("Proton VPN Servers")
+				fmt.Println("┌───────────────────────────────┬──────────────────┬─────────────┐")
+				fmt.Println("│ SERVER                            │ COUNTRY          │ STATUS      │")
+				fmt.Println("├───────────────────────────────┼──────────────────┼─────────────┤")
+
+				for _, line := range lines {
+					line = strings.TrimSpace(line)
+					if line == "" || strings.HasPrefix(line, "┌") || strings.HasPrefix(line, "├") || strings.HasPrefix(line, "└") {
+						continue
+					}
+					// Simple parsing - in real implementation, parse the actual output format
+					fmt.Printf("│ %-33s │ %-16s │ %-11s │\n", line, "", "")
+				}
+
+				fmt.Println("└───────────────────────────────┴──────────────────┴─────────────┘")
+				return
+			}
+
+			// Fallback to API with required headers (updated endpoint)
+			// Note: This API may require authentication or specific headers
+			// Trying a simple GET without auth first
+			client := &http.Client{}
+			resp, err := client.Get("https://protonvpn.com/api/vpn/logicals")
+			if err != nil {
+				// Try alternative endpoint
+				resp, err = client.Get("https://api.protonmail.ch/vpn/logicals")
+				if err != nil {
+					output.NewError(fmt.Sprintf("Failed to fetch servers: %s", err.Error()), "PROTON_LIST_ERROR").Print()
+					return
+				}
+			}
+			defer resp.Body.Close()
+
+			body, _ := io.ReadAll(resp.Body)
+			var data map[string]interface{}
+			json.Unmarshal(body, &data)
+
+			// Check for both possible response formats
+			var servers []interface{}
+			if logicalServers, ok := data["LogicalServers"].([]interface{}); ok {
+				servers = logicalServers
+			} else if serverList, ok := data["Servers"].([]interface{}); ok {
+				servers = serverList
+			} else {
+				// Try parsing as array directly
+				var serverArray []interface{}
+				json.Unmarshal(body, &serverArray)
+				if len(serverArray) > 0 {
+					servers = serverArray
+				} else {
+					output.NewInfo("No servers found. API may require authentication.").Print()
+					return
+				}
+			}
+
 			fmt.Println("Proton VPN Servers")
 			fmt.Println("┌───────────────────────────────┬──────────────────┬─────────────┐")
 			fmt.Println("│ SERVER                            │ COUNTRY          │ STATUS      │")
 			fmt.Println("├───────────────────────────────┼──────────────────┼─────────────┤")
 
-			for _, line := range lines {
-				line = strings.TrimSpace(line)
-				if line == "" || strings.HasPrefix(line, "┌") || strings.HasPrefix(line, "├") || strings.HasPrefix(line, "└") {
-					continue
+			for _, s := range servers {
+				if serverMap, ok := s.(map[string]interface{}); ok {
+					name := ""
+					if n, ok := serverMap["Name"].(string); ok {
+						name = n
+					}
+					country := ""
+					if c, ok := serverMap["Country"].(string); ok {
+						country = c
+					}
+					status := "Available"
+					if st, ok := serverMap["Status"].(float64); ok && st == 0 {
+						status = "Unavailable"
+					}
+
+					statusColor := "\033[32m" // green
+					if status == "Unavailable" {
+						statusColor = "\033[31m" // red
+					}
+
+					fmt.Printf("│ %-33s │ %-16s │ %s%-11s\033[0m │\n", name, country, statusColor, status)
 				}
-				// Simple parsing - in real implementation, parse the actual output format
-				fmt.Printf("│ %-33s │ %-16s │ %-11s │\n", line, "", "")
 			}
 
 			fmt.Println("└───────────────────────────────┴──────────────────┴─────────────┘")
-			return
-		}
-
-		// Fallback to API with required headers
-		req, _ := http.NewRequest("GET", "https://api.protonvpn.ch/vpn/logicals", nil)
-		req.Header.Set("x-pm-appversion", "Other")
-		req.Header.Set("x-pm-client-version", "nux-cli-1.0")
-		client := &http.Client{}
-		resp, err := client.Do(req)
-		if err != nil {
-			output.NewError(fmt.Sprintf("Failed to fetch servers: %s", err.Error()), "PROTON_LIST_ERROR").Print()
-			return
-		}
-		defer resp.Body.Close()
-
-		body, _ := io.ReadAll(resp.Body)
-		var data map[string]interface{}
-		json.Unmarshal(body, &data)
-
-		servers, ok := data["LogicalServers"].([]interface{})
-		if !ok {
-			output.NewInfo("No servers found").Print()
-			return
-		}
-
-		fmt.Println("Proton VPN Servers")
-		fmt.Println("┌───────────────────────────────┬──────────────────┬─────────────┐")
-		fmt.Println("│ SERVER                            │ COUNTRY          │ STATUS      │")
-		fmt.Println("├───────────────────────────────┼──────────────────┼─────────────┤")
-
-		for _, s := range servers {
-			if serverMap, ok := s.(map[string]interface{}); ok {
-				name := ""
-				if n, ok := serverMap["Name"].(string); ok {
-					name = n
-				}
-				country := ""
-				if c, ok := serverMap["Country"].(string); ok {
-					country = c
-				}
-				status := "Available"
-				if st, ok := serverMap["Status"].(float64); ok && st == 0 {
-					status = "Unavailable"
-				}
-
-				statusColor := "\033[32m" // green
-				if status == "Unavailable" {
-					statusColor = "\033[31m" // red
-				}
-
-				fmt.Printf("│ %-33s │ %-16s │ %s%-11s\033[0m │\n", name, country, statusColor, status)
-			}
-		}
-
-		fmt.Println("└───────────────────────────────┴──────────────────┴─────────────┘")
-		fmt.Printf("\n%d servers found\n", len(servers))
-	},
-}
+			fmt.Printf("\n%d servers found\n", len(servers))
+		},
+	}
 
 var protonVpnConnectCmd = &cobra.Command{
 	Use:   "connect [server]",
@@ -362,6 +446,7 @@ func init() {
 	protonVpnCmd.AddCommand(protonVpnDisconnectCmd)
 	protonVpnCmd.AddCommand(protonVpnLoginCmd)
 	protonVpnCmd.AddCommand(protonVpnListCmd)
+	protonVpnCmd.AddCommand(protonVpnInstallCmd)
 	protonVpnLoginCmd.Flags().String("username", "", "Proton username (email)")
 	protonVpnLoginCmd.Flags().String("password", "", "Proton password (unsafe for special chars)")
 	protonVpnLoginCmd.Flags().Bool("password-stdin", false, "Read password from stdin (safe for special chars)")
