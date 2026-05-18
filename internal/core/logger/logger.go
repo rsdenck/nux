@@ -1,7 +1,5 @@
 package logger
 
-// Package logger provides logging functionality.
-
 import (
 	"context"
 	"fmt"
@@ -9,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // Options for logger configuration
@@ -22,26 +21,16 @@ type Options struct {
 func Init(opts Options) error {
 	var handler slog.Handler
 
-	// Ensure log directory exists if log file is specified
 	if opts.LogFile != "" {
 		dir := filepath.Dir(opts.LogFile)
-		// G301: Expect directory permissions to be 0750 or less
 		if err := os.MkdirAll(dir, 0750); err != nil {
 			return err
 		}
 	}
 
-	// Create a multi-writer handler
-	// 1. Console Handler (UI)
-	//    - Info/Warn -> Stdout
-	//    - Error -> Stderr
-	// 2. File Handler (Debug)
-	//    - All levels including Debug -> File
-
 	consoleHandler := NewConsoleHandler(os.Stdout, os.Stderr, opts)
 
 	if opts.LogFile != "" {
-		// G302: Expect file permissions to be 0600 or less
 		f, err := os.OpenFile(opts.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 		if err != nil {
 			return err
@@ -85,19 +74,25 @@ func (h *ConsoleHandler) Enabled(ctx context.Context, level slog.Level) bool {
 }
 
 func (h *ConsoleHandler) Handle(ctx context.Context, r slog.Record) error {
-	// Simple text format for UI
-	// Error -> Stderr, others -> Stdout
 	w := h.out
 	if r.Level >= slog.LevelError {
 		w = h.err
 	}
 
-	// Format: [LEVEL] Message key=value
-	// Or just Message for Info
-	msg := r.Message
+	level := r.Level.String()
+	if r.Level >= slog.LevelError {
+		level = "ERROR"
+	} else if r.Level >= slog.LevelWarn {
+		level = "WARN"
+	} else if r.Level >= slog.LevelInfo {
+		level = "INFO"
+	} else {
+		level = "DEBUG"
+	}
 
-	// Write to writer
-	_, err := io.WriteString(w, fmt.Sprintf("[%s] %s\n", r.Level, msg))
+	msg := fmt.Sprintf("[%s] %s", level, r.Message)
+	
+	_, err := io.WriteString(w, msg+"\n")
 	return err
 }
 
@@ -142,7 +137,9 @@ func (h *MultiHandler) Enabled(ctx context.Context, level slog.Level) bool {
 func (h *MultiHandler) Handle(ctx context.Context, r slog.Record) error {
 	for _, handler := range h.handlers {
 		if handler.Enabled(ctx, r.Level) {
-			_ = handler.Handle(ctx, r)
+			if err := handler.Handle(ctx, r); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -162,4 +159,30 @@ func (h *MultiHandler) WithGroup(name string) slog.Handler {
 		handlers[i] = handler.WithGroup(name)
 	}
 	return NewMultiHandler(handlers...)
+}
+
+// Log levels
+func Debug(msg string, args ...interface{}) {
+	slog.Debug(fmt.Sprintf(msg, args...))
+}
+
+func Info(msg string, args ...interface{}) {
+	slog.Info(fmt.Sprintf(msg, args...))
+}
+
+func Warn(msg string, args ...interface{}) {
+	slog.Warn(fmt.Sprintf(msg, args...))
+}
+
+func Error(msg string, args ...interface{}) {
+	slog.Error(fmt.Sprintf(msg, args...))
+}
+
+func Log(ctx context.Context, level slog.Level, msg string, args ...interface{}) {
+	slog.Log(ctx, level, fmt.Sprintf(msg, args...))
+}
+
+// LogWithTime logs with timestamp
+func LogWithTime(level slog.Level, msg string, args ...interface{}) {
+	slog.Log(context.Background(), level, fmt.Sprintf("[%s] %s", time.Now().Format(time.RFC3339), fmt.Sprintf(msg, args...)))
 }

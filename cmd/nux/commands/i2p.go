@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/rsdenck/nux/internal/output"
@@ -36,12 +37,12 @@ var i2pStartCmd = &cobra.Command{
 			return
 		}
 
-		cmdStart := exec.Command(i2pRouter)
-		cmdStart.Dir = i2pDir
-		if err := cmdStart.Start(); err != nil {
-			output.NewError(fmt.Sprintf("Failed to start I2P: %s", err.Error()), "I2P_START_ERR").Print()
-			return
-		}
+cmdStart := exec.Command(i2pRouter)
+	cmdStart.Dir = i2pDir
+	if err := cmdStart.Start(); err != nil {
+		output.NewError(fmt.Sprintf("Failed to start I2P: %s", err.Error()), "I2P_START_ERR").Print()
+		return
+	}
 		pidFile := filepath.Join(i2pDir, ".pid")
 		os.WriteFile(pidFile, []byte(fmt.Sprintf("%d", cmdStart.Process.Pid)), 0644)
 		output.NewInfo(fmt.Sprintf("I2P router started (PID: %d)", cmdStart.Process.Pid)).Print()
@@ -297,15 +298,21 @@ func findI2PRouter() string {
 }
 
 func isI2PRunning() bool {
-	out, err := exec.Command("pgrep", "-f", "i2prouter|java.net.router").CombinedOutput()
+	out, err := exec.Command("pgrep", "-f", "i2prouter|I2P.*router").CombinedOutput()
 	if err != nil {
 		return false
 	}
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	pid := os.Getpid()
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if line != "" && line != fmt.Sprintf("%d", pid) {
+		if line == "" {
+			continue
+		}
+		pid, err := strconv.Atoi(line)
+		if err != nil {
+			continue
+		}
+		if pid != os.Getpid() && pid != os.Getppid() {
 			return true
 		}
 	}

@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "bash-linux": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/bash-linux/SKILL.md",
+      "computedHash": "e078b9da423a49126b6684dc210ae77e4d851b521de390a21b7c8b9f6c926851"
+    },
+    "golang-pro": {
+      "source": "jeffallan/claude-skills",
+      "sourceType": "github",
+      "skillPath": "skills/golang-pro/SKILL.md",
+      "computedHash": "12b4cac8f65228f82cbc26f0da9232aba87ffa45ccd01afa3998fb8ec61dc288"
+    }
+  }
+}

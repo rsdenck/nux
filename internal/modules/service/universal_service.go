@@ -176,13 +176,39 @@ func (m *UniversalServiceManager) listSysvServices(ctx context.Context) ([]ports
 }
 
 func (m *UniversalServiceManager) listOpenRCServices(ctx context.Context) ([]ports.ServiceUnit, error) {
-	// rc-status --all
-	_, err := m.executor.Exec(ctx, "rc-status", "--all")
+	res, err := m.executor.Exec(ctx, "rc-status", "--all", "--no-pager")
 	if err != nil {
 		return nil, err
 	}
-	// parsing rc-status output...
-	return []ports.ServiceUnit{}, nil // TODO: Implement OpenRC parsing
+
+	reService := regexp.MustCompile(`^\s*(\S+)\s+\[(\S+)\]`)
+
+	var services []ports.ServiceUnit
+	lines := strings.Split(res.Stdout, "\n")
+	for _, line := range lines {
+		matches := reService.FindStringSubmatch(line)
+		if len(matches) >= 3 {
+			name := matches[1]
+			status := matches[2]
+
+			state := "inactive"
+			if status == "started" {
+				state = "active"
+			} else if status == "stopped" {
+				state = "inactive"
+			} else if status == "running" {
+				state = "active"
+			}
+
+			services = append(services, ports.ServiceUnit{
+				Name:        name,
+				Status:      state,
+				ActiveState: state,
+				LoadState:   "loaded",
+			})
+		}
+	}
+	return services, nil
 }
 
 // StartService starts a service

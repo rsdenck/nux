@@ -42,12 +42,12 @@ var znetStartCmd = &cobra.Command{
 			}
 		}
 
-		cmdStart := exec.Command("python3", znetPy)
-		cmdStart.Dir = znetDir
-		if err := cmdStart.Start(); err != nil {
-			output.NewError(fmt.Sprintf("Failed to start ZeroNet: %s", err.Error()), "ZNET_START_ERR").Print()
-			return
-		}
+cmdStart := exec.Command("python3", znetPy)
+	cmdStart.Dir = znetDir
+	if err := cmdStart.Start(); err != nil {
+		output.NewError(fmt.Sprintf("Failed to start ZeroNet: %s", err.Error()), "ZNET_START_ERR").Print()
+		return
+	}
 		pidFile := filepath.Join(znetDir, ".pid")
 		os.WriteFile(pidFile, []byte(fmt.Sprintf("%d", cmdStart.Process.Pid)), 0644)
 		output.NewInfo(fmt.Sprintf("ZeroNet started (PID: %d)", cmdStart.Process.Pid)).Print()

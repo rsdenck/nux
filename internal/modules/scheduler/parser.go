@@ -23,33 +23,40 @@ func ParseCrontabOutput(output string) ([]ports.CronJob, error) {
 			continue
 		}
 		
-		var schedule, command string
+		var schedule, command, user string
 		
-		// Handle special strings like @reboot
 		if strings.HasPrefix(fields[0], "@") {
 			if len(fields) < 2 {
 				continue
 			}
 			schedule = fields[0]
 			command = strings.Join(fields[1:], " ")
+			user = detectUserFromCommand(command)
 		} else {
-			// Standard 5 fields
 			if len(fields) < 6 {
 				continue
 			}
 			schedule = strings.Join(fields[:5], " ")
 			command = strings.Join(fields[5:], " ")
+			user = detectUserFromCommand(command)
 		}
 
 		jobs = append(jobs, ports.CronJob{
 			ID:       fmt.Sprintf("cron-%d", i),
 			Schedule: schedule,
 			Command:  command,
-			User:     "current", // TODO: Detect user if possible
+			User:     user,
 			File:     "user-crontab",
 		})
 	}
 	return jobs, nil
+}
+
+func detectUserFromCommand(command string) string {
+	if strings.Contains(command, "root") {
+		return "root"
+	}
+	return "current"
 }
 
 // SystemdTimerEntry for JSON unmarshalling
