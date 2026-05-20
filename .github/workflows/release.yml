@@ -59,7 +59,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Publish AUR package
-      uses: KSXGitHub/github-actions-deploy-aur@v2.7.0
+      uses: KSXGitHub/github-actions-deploy-aur@v4.1.3
       with:
         pkgname: nux-cli
         pkgbuild: packaging/aur/PKGBUILD
