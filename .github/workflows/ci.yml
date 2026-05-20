@@ -90,7 +90,7 @@ jobs:
         if [ "${{ matrix.goos }}" = "windows" ]; then EXT=".exe"; fi
         go build -v -ldflags="-s -w -X main.version=dev -X main.commit=${{ github.sha }} -X main.date=$(date -u +%Y-%m-%d)" -o nux-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm == 7 && '-v7' || '' }}${EXT} ./cmd/nux
     - name: Upload artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: nux-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm == 7 && '-v7' || '' }}
         path: nux-*
@@ -150,7 +150,7 @@ jobs:
       run: |
         go doc ./... > docs/api.md 2>/dev/null || true
     - name: Upload docs
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: generated-docs
         path: docs/api.md
